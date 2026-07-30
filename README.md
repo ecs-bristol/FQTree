@@ -1,12 +1,11 @@
 # FQTree
 
-FQTree is a paper-facing package for fine-grained quantization-aware boosted
+FQTree is a package for fine-grained quantization-aware boosted
 decision trees targeting FPGA deployment.
 
 The implementation currently uses [`qxgb`](https://github.com/calad0i/qxgb)
 behind a backend adapter for quantization-aware XGBoost training and
-integer-booster export. User code should import `fqtree`; the `qxgb` dependency
-is treated as an implementation backend.
+integer-booster export. 
 
 ## Installation
 
@@ -45,7 +44,7 @@ comb = trace(inp, out)
 ## Repository Layout
 
 - `src/fqtree/`: FQTree public Python package.
-- `src/fqtree/backends/`: backend adapters. `qxgb` is imported only here.
+- `src/fqtree/backends/`: backend adapters. 
 - `examples/`: JSC, MNIST, and NID notebooks matching the paper experiments.
 - `requirements.txt`: editable install helper for local notebook use.
 
