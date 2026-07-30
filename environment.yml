@@ -1,0 +1,16 @@
+name: fqtree
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip>=23
+  - numpy
+  - pandas
+  - scikit-learn
+  - jupyterlab
+  - ipykernel
+  - pip:
+      - -e .[notebooks]
+
+# FPGA synthesis/simulation tools such as Vivado and Verilator are external
+# toolchain dependencies and are not installed by this conda environment.
