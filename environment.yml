@@ -10,6 +10,9 @@ dependencies:
   - jupyterlab
   - ipykernel
   - pip:
+      - qxgb>=0.1.0
+      - alkaid
+      - xgboost>=3
       - -e .[notebooks]
 
 # FPGA synthesis/simulation tools such as Vivado and Verilator are external
