@@ -17,5 +17,4 @@ dependencies:
       - xgboost>=3
       - -e .[notebooks]
 
-# Vivado/Vitis remain external FPGA synthesis tools. Verilator is installed
-# in this conda environment for RTL simulation via RTLModel.predict().
+# Vivado/Vitis remain external FPGA synthesis tools. 
