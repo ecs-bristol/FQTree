@@ -9,6 +9,19 @@ integer-booster export.
 
 ## Installation
 
+Recommended conda setup:
+
+```bash
+conda env create -f environment.yml
+conda activate fqtree
+```
+
+This installs the local `fqtree` package in editable mode together with the
+notebook dependencies and the explicit pip dependencies listed in
+`environment.yml`, including `qxgb`, `alkaid`, and `xgboost`.
+
+If you already have a suitable Python environment, install the package directly:
+
 ```bash
 pip install -e .[notebooks]
 ```
