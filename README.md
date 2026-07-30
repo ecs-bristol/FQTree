@@ -5,9 +5,7 @@ decision trees targeting FPGA deployment.
 
 The public API is named after the paper algorithm, while the current QAT engine
 is implemented through the pinned [`qxgb`](https://github.com/calad0i/qxgb)
-backend. In other words, FQTree owns the stable algorithm-facing API,
-reproduction scripts, paper configurations, and hardware workflow; qxgb owns the
-lower-level quantized XGBoost backend.
+backend.
 
 See [docs/backend_mapping.md](docs/backend_mapping.md) for the detailed mapping
 between FQTree, qxgb, Alkaid, Vivado, and Verilator.
@@ -29,8 +27,8 @@ pinned qxgb backend:
 qxgb==0.1.0
 ```
 
-Vivado/Vitis are still external FPGA toolchain dependencies. On `ccgpu4`, source
-the local Xilinx setup before running Vivado synthesis:
+Vivado/Vitis are still external FPGA toolchain dependencies. Source
+the local Xilinx setup before running Vivado synthesis, such as:
 
 ```bash
 source ~/tools/xilinx_vitis.sh
