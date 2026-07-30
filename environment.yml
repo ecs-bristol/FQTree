@@ -4,6 +4,8 @@ channels:
 dependencies:
   - python=3.10
   - pip>=23
+  - make
+  - verilator
   - numpy
   - pandas
   - scikit-learn
@@ -15,5 +17,5 @@ dependencies:
       - xgboost>=3
       - -e .[notebooks]
 
-# FPGA synthesis/simulation tools such as Vivado and Verilator are external
-# toolchain dependencies and are not installed by this conda environment.
+# Vivado/Vitis remain external FPGA synthesis tools. Verilator is installed
+# in this conda environment for RTL simulation via RTLModel.predict().
