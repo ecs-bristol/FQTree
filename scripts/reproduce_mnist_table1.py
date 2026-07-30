@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Reproduce the JSC HLF QAT/FQTree rows from Table I.
+"""Reproduce the MNIST QAT/FQTree rows from Table I.
 
-This script trains the two paper-facing FQTree configurations for the JSC HLF
+This script trains the paper-facing FQTree configurations for the MNIST
 benchmark, traces them through Alkaid, and writes RTL projects. Vivado and
-Verilator are intentionally split into separate scripts so the expensive FPGA
-steps can be run and retried independently.
+Verilator are handled by the separate reporting and simulation scripts.
 """
 
 from __future__ import annotations
@@ -16,31 +15,31 @@ from pathlib import Path
 from typing import Any
 
 
-JSC_CASES: dict[str, dict[str, Any]] = {
+MNIST_CASES: dict[str, dict[str, Any]] = {
     "accuracy": {
-        "n_estimators": 24,
-        "max_depth": 4,
-        "scale": 3,
-        "bias": -2.5,
+        "n_estimators": 64,
+        "max_depth": 6,
+        "scale": 2.5,
+        "bias": -1,
         "n_stages": 2,
-        "clock_period": 2,
+        "clock_period": 1.6,
+    },
+    "balanced": {
+        "n_estimators": 48,
+        "max_depth": 4,
+        "scale": 1.5,
+        "bias": -1,
+        "n_stages": 2,
+        "clock_period": 1.6,
     },
     "low_cost": {
-        "n_estimators": 12,
-        "max_depth": 3,
-        "scale": 3,
-        "bias": -2.5,
-        "n_stages": 1,
-        "clock_period": 2,
+        "n_estimators": 32,
+        "max_depth": 4,
+        "scale": 1.5,
+        "bias": -1,
+        "n_stages": 2,
+        "clock_period": 1.6,
     },
-}
-
-LABELS = {
-    "g": 0,
-    "q": 1,
-    "w": 2,
-    "z": 3,
-    "t": 4,
 }
 
 
@@ -48,21 +47,21 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--case",
-        choices=["all", *JSC_CASES.keys()],
+        choices=["all", *MNIST_CASES.keys()],
         default="all",
-        help="JSC Table I configuration to run.",
+        help="MNIST Table I configuration to run.",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
         default=None,
-        help="Directory for summaries and RTL output. Defaults to runs/jsc_table1_qat_<timestamp>.",
+        help="Directory for summaries and RTL output. Defaults to runs/mnist_table1_qat_<timestamp>.",
     )
     parser.add_argument(
         "--data-cache",
         type=Path,
-        default=Path("/tmp/jsc.npz"),
-        help="Cached JSC HLF train/test arrays.",
+        default=Path("/tmp/mnist.npz"),
+        help="Cached MNIST train/test arrays.",
     )
     parser.add_argument(
         "--no-fetch-openml",
@@ -79,13 +78,13 @@ def parse_args() -> argparse.Namespace:
         dest="xls_opt",
         action="store_true",
         default=True,
-        help="Use the Alkaid XLS backend when writing RTL. This matches the paper path.",
+        help="Use the optimized RTL generation path.",
     )
     parser.add_argument(
         "--no-xls-opt",
         dest="xls_opt",
         action="store_false",
-        help="Write RTL through the non-XLS Verilog backend.",
+        help="Use the fallback Verilog generation path.",
     )
     parser.add_argument(
         "--hardware-mode",
@@ -108,13 +107,13 @@ def log(message: str) -> None:
 
 def selected_cases(case: str) -> list[tuple[str, dict[str, Any]]]:
     if case == "all":
-        return list(JSC_CASES.items())
-    return [(case, JSC_CASES[case])]
+        return list(MNIST_CASES.items())
+    return [(case, MNIST_CASES[case])]
 
 
 def default_output_dir() -> Path:
     ts = time.strftime("%Y%m%d_%H%M%S")
-    return Path("runs") / f"jsc_table1_qat_{ts}"
+    return Path("runs") / f"mnist_table1_qat_{ts}"
 
 
 def write_jsonl(path: Path, record: dict[str, Any]) -> None:
@@ -122,33 +121,33 @@ def write_jsonl(path: Path, record: dict[str, Any]) -> None:
         f.write(json.dumps(record, sort_keys=True) + "\n")
 
 
-def prepare_jsc_data(data_cache: Path, *, fetch_openml: bool) -> tuple[Any, Any, Any, Any]:
+def prepare_mnist_data(data_cache: Path, *, fetch_openml: bool) -> tuple[Any, Any, Any, Any]:
     import numpy as np
 
     if not data_cache.exists():
         if not fetch_openml:
-            raise FileNotFoundError(f"JSC cache not found: {data_cache}")
+            raise FileNotFoundError(f"MNIST cache not found: {data_cache}")
 
-        from sklearn.datasets import fetch_openml
-        from sklearn.model_selection import train_test_split
+        from sklearn.datasets import fetch_openml as fetch_openml_dataset
 
-        log("fetching OpenML dataset hls4ml_lhc_jets_hlf")
-        data = fetch_openml("hls4ml_lhc_jets_hlf")
-        X, y = np.array(data["data"]), data["target"]
-        y = np.array([LABELS[label] for label in y])
-
-        X_train, X_test, y_train, y_test = train_test_split(
-            X,
-            y,
-            test_size=0.2,
-            random_state=3,
-        )
-        x_min, x_max = X_train.min(axis=0), X_train.max(axis=0)
-        X_train = np.floor((X_train - x_min) / (x_max - x_min) * 255)
-        X_test = np.floor((X_test - x_min) / (x_max - x_min) * 255)
+        log("fetching OpenML dataset mnist_784")
+        data = fetch_openml_dataset("mnist_784", version=1, as_frame=False)
+        X, y = data.data, data.target.astype(np.int64)
+        X_train, y_train = X[:60000], y[:60000]
+        X_test, y_test = X[60000:], y[60000:]
+        X_train = X_train.reshape(X_train.shape[0], -1)
+        X_test = X_test.reshape(X_test.shape[0], -1)
+        X_train_q = np.floor(X_train / 2**7)
+        X_test_q = np.floor(X_test / 2**7)
         data_cache.parent.mkdir(parents=True, exist_ok=True)
-        np.savez(data_cache, X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
-        log(f"cached JSC arrays to {data_cache}")
+        np.savez(
+            data_cache,
+            X_train=X_train_q,
+            y_train=y_train,
+            X_test=X_test_q,
+            y_test=y_test,
+        )
+        log(f"cached MNIST arrays to {data_cache}")
 
     arrays = np.load(data_cache)
     return arrays["X_train"], arrays["y_train"], arrays["X_test"], arrays["y_test"]
@@ -159,9 +158,8 @@ def require_xls_python() -> None:
         from xls.raw import jit_fn_predict  # noqa: F401
     except Exception as exc:  # pragma: no cover - environment-specific path
         raise RuntimeError(
-            "xls_opt=True requires the xls-python package. On ccgpu4 the host glibc "
-            "is too old for the current wheel, so run this script inside a newer-glibc "
-            "container such as python:3.10-bookworm, or pass --no-xls-opt."
+            "xls_opt=True requires the xls-python package in the active environment. "
+            "Install it or pass --no-xls-opt."
         ) from exc
 
 
@@ -188,7 +186,7 @@ def run_case(
     model = FQTreeClassifier(
         scale=config["scale"],
         bias=config["bias"],
-        num_class=5,
+        num_class=10,
         n_estimators=config["n_estimators"],
         max_depth=config["max_depth"],
         eta=0.8,
@@ -197,7 +195,7 @@ def run_case(
     xgb_test_acc = float(np.mean(model.predict(X_test) == y_test))
     log(f"{label}: XGB/FQTree test accuracy {xgb_test_acc:.6f}")
 
-    inp = FVArray.new(16).quantize(0, 8, 0).as_new()
+    inp = FVArray.new(int(X_train.shape[1])).quantize(0, 1, 0).as_new()
     _, out = trace_model(model.ibooster(), inputs=inp, mode=hardware_mode)
     comb = trace(inp, out)
 
@@ -224,12 +222,12 @@ def run_case(
         xls_opt=xls_opt,
         metadata={
             "label": label,
-            "dataset": "JSC HLF",
+            "dataset": "MNIST",
             "prediction_mode": "multiclass",
             "xgb_test_acc": xgb_test_acc,
             "comb_metric": hw_test_acc,
             "hw_train_acc": hw_train_acc,
-            "source": "FQTree JSC Table I QAT reproduction",
+            "source": "FQTree MNIST Table I QAT reproduction",
         },
     )
     rtl_write_seconds = time.time() - start
@@ -266,7 +264,7 @@ def main() -> None:
     log(f"output_dir={output_dir}")
     log(f"part_name={args.part_name}")
 
-    data = prepare_jsc_data(args.data_cache, fetch_openml=not args.no_fetch_openml)
+    data = prepare_mnist_data(args.data_cache, fetch_openml=not args.no_fetch_openml)
     for label, config in cases:
         run_case(
             label,

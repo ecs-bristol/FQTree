@@ -60,6 +60,12 @@ def parse_args() -> argparse.Namespace:
         help="Extra flags passed through RTLModel._compile().",
     )
     parser.add_argument(
+        "--prediction-mode",
+        choices=["auto", "multiclass", "binary-logit"],
+        default="auto",
+        help="How to turn RTL outputs into labels for the reported accuracy.",
+    )
+    parser.add_argument(
         "--continue-on-error",
         action="store_true",
         help="Continue to the next RTL project if one check fails.",
@@ -70,6 +76,8 @@ def parse_args() -> argparse.Namespace:
 def log(message: str) -> None:
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{ts}] {message}", flush=True)
+
+
 def write_jsonl(path: Path, record: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a") as f:
@@ -112,6 +120,22 @@ def compile_rtl(args: argparse.Namespace, rtl: Any, rtl_dir: Path) -> tuple[int,
     raise RuntimeError(f"Verilator compile failed for {rtl_dir}: {last_error!r}")
 
 
+def resolve_prediction_mode(args: argparse.Namespace, metadata: dict[str, Any]) -> str:
+    if args.prediction_mode != "auto":
+        return args.prediction_mode.replace("-", "_")
+    return metadata.get("prediction_mode", "multiclass")
+
+
+def output_accuracy(outputs: Any, labels: Any, prediction_mode: str) -> float:
+    import numpy as np
+
+    if prediction_mode == "binary_logit":
+        return float(np.mean((outputs.ravel() >= 0) == labels))
+    if prediction_mode == "multiclass":
+        return float(np.mean(np.argmax(outputs, axis=1) == labels))
+    raise ValueError(f"Unsupported prediction mode: {prediction_mode}")
+
+
 def process_one(args: argparse.Namespace, rtl_dir: Path, X_test: Any, y_test: Any) -> dict[str, Any]:
     import numpy as np
     from alkaid.codegen import RTLModel
@@ -134,7 +158,8 @@ def process_one(args: argparse.Namespace, rtl_dir: Path, X_test: Any, y_test: An
 
     bit_exact = bool(np.array_equal(actual, expected))
     max_abs_diff = float(np.max(np.abs(actual - expected))) if actual.size else 0.0
-    hw_acc = float(np.mean(np.argmax(actual, axis=1) == y_test))
+    prediction_mode = resolve_prediction_mode(args, metadata)
+    hw_acc = output_accuracy(actual, y_test, prediction_mode)
 
     record = {
         "label": metadata.get("label", rtl_dir.name),
@@ -146,6 +171,7 @@ def process_one(args: argparse.Namespace, rtl_dir: Path, X_test: Any, y_test: An
         "bit_exact": bit_exact,
         "max_abs_diff": max_abs_diff,
         "hw_acc_from_rtl": hw_acc,
+        "prediction_mode": prediction_mode,
         "n_samples": int(X_test.shape[0]),
         "output_shape": list(actual.shape),
         "metadata": metadata,
