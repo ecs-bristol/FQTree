@@ -1,11 +1,16 @@
 # FQTree
 
-FQTree is a package for fine-grained quantization-aware boosted
+FQTree is the paper-facing package for fine-grained quantization-aware boosted
 decision trees targeting FPGA deployment.
 
-The implementation currently uses [`qxgb`](https://github.com/calad0i/qxgb)
-behind a backend adapter for quantization-aware XGBoost training and
-integer-booster export. 
+The public API is named after the paper algorithm, while the current QAT engine
+is implemented through the pinned [`qxgb`](https://github.com/calad0i/qxgb)
+backend. In other words, FQTree owns the stable algorithm-facing API,
+reproduction scripts, paper configurations, and hardware workflow; qxgb owns the
+lower-level quantized XGBoost backend.
+
+See [docs/backend_mapping.md](docs/backend_mapping.md) for the detailed mapping
+between FQTree, qxgb, Alkaid, Vivado, and Verilator.
 
 ## Installation
 
@@ -16,9 +21,20 @@ conda env create -f environment.yml
 conda activate fqtree
 ```
 
-This installs the local `fqtree` package in editable mode together with the
-notebook dependencies and the explicit pip dependencies listed in
-`environment.yml`, including `qxgb`, `alkaid`, and `xgboost`.
+This installs the local `fqtree` package in editable mode, notebook utilities,
+`verilator` for RTL simulation, and explicit Python dependencies including the
+pinned qxgb backend:
+
+```text
+qxgb==0.1.0
+```
+
+Vivado/Vitis are still external FPGA toolchain dependencies. On `ccgpu4`, source
+the local Xilinx setup before running Vivado synthesis:
+
+```bash
+source ~/tools/xilinx_vitis.sh
+```
 
 If you already have a suitable Python environment, install the package directly:
 
@@ -54,11 +70,56 @@ _, out = trace_fqtree_model(model, inputs=inp, mode="mux")
 comb = trace(inp, out)
 ```
 
+## Reproducing JSC HLF Table I
+
+The JSC HLF QAT/FQTree rows from Table I are represented by two named
+configurations in `scripts/reproduce_jsc_table1.py`:
+
+- `accuracy`: `n_estimators=24`, `max_depth=4`, `scale=3`, `bias=-2.5`, `2` RTL stages
+- `low_cost`: `n_estimators=12`, `max_depth=3`, `scale=3`, `bias=-2.5`, `1` RTL stage
+
+Inspect the selected configurations without running training:
+
+```bash
+python scripts/reproduce_jsc_table1.py --dry-run
+```
+
+Generate RTL for the two JSC QAT configurations:
+
+```bash
+python scripts/reproduce_jsc_table1.py --output-dir runs/jsc_table1_qat
+```
+
+Run or parse Vivado reports for generated RTL directories:
+
+```bash
+python scripts/run_vivado_reports.py runs/jsc_table1_qat/rtl/*
+```
+
+If Vivado has already been run and only report parsing is needed:
+
+```bash
+python scripts/run_vivado_reports.py --parse-only runs/jsc_table1_qat/rtl/*
+```
+
+Run Verilator bit-exact RTL checks:
+
+```bash
+python scripts/run_verilator_check.py runs/jsc_table1_qat/rtl/* --data-cache /tmp/jsc.npz
+```
+
+`RTLModel.predict()` is the runtime simulation API, but only after
+`RTLModel._compile()` or `RTLModel.compile()` has built the Verilator shared
+library. The script handles that compile step before calling `predict()`.
+
 ## Repository Layout
 
 - `src/fqtree/`: FQTree public Python package.
-- `src/fqtree/backends/`: backend adapters. 
-- `examples/`: JSC, MNIST, and NID notebooks matching the paper experiments.
+- `src/fqtree/backends/`: backend adapters, currently `QXGBBackend`.
+- `examples/`: JSC, MNIST, and NID notebooks matching paper experiments.
+- `scripts/`: reproducibility scripts for Table I RTL generation, Vivado reports, and Verilator checks.
+- `docs/backend_mapping.md`: mapping between FQTree, qxgb, Alkaid, and hardware tools.
+- `environment.yml`: conda environment for local development and RTL simulation.
 - `requirements.txt`: editable install helper for local notebook use.
 
 ## Backend Boundary

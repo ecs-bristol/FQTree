@@ -21,7 +21,7 @@ dynamic = ["version"]
 dependencies = [
   "alkaid",
   "numpy",
-  "qxgb>=0.1.0",
+  "qxgb==0.1.0",
   "scikit-learn",
   "xgboost>=3",
 ]

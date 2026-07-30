@@ -12,9 +12,9 @@ dependencies:
   - jupyterlab
   - ipykernel
   - pip:
-      - qxgb>=0.1.0
+      - qxgb==0.1.0
       - alkaid
       - xgboost>=3
       - -e .[notebooks]
 
-# Vivado/Vitis remain external FPGA synthesis tools. 
+# Vivado/Vitis remain external FPGA synthesis tools.
