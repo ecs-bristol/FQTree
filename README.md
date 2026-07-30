@@ -70,42 +70,52 @@ _, out = trace_fqtree_model(model, inputs=inp, mode="mux")
 comb = trace(inp, out)
 ```
 
-## Reproducing JSC HLF Table I
+## Reproducing Table I Benchmarks
 
-The JSC HLF QAT/FQTree rows from Table I are represented by two named
-configurations in `scripts/reproduce_jsc_table1.py`:
+The QAT/FQTree rows from Table I are represented by dataset-specific scripts:
 
-- `accuracy`: `n_estimators=24`, `max_depth=4`, `scale=3`, `bias=-2.5`, `2` RTL stages
-- `low_cost`: `n_estimators=12`, `max_depth=3`, `scale=3`, `bias=-2.5`, `1` RTL stage
+- `scripts/reproduce_jsc_table1.py`: JSC HLF, with `accuracy` and `low_cost` cases.
+- `scripts/reproduce_mnist_table1.py`: MNIST, with `accuracy`, `balanced`, and `low_cost` cases.
+- `scripts/reproduce_nid_table1.py`: NID, with `accuracy`, `balanced`, and `low_cost` cases.
 
 Inspect the selected configurations without running training:
 
 ```bash
 python scripts/reproduce_jsc_table1.py --dry-run
+python scripts/reproduce_mnist_table1.py --dry-run
+python scripts/reproduce_nid_table1.py --dry-run
 ```
 
-Generate RTL for the two JSC QAT configurations:
+Generate RTL for the Table I QAT configurations:
 
 ```bash
 python scripts/reproduce_jsc_table1.py --output-dir runs/jsc_table1_qat
+python scripts/reproduce_mnist_table1.py --output-dir runs/mnist_table1_qat
+python scripts/reproduce_nid_table1.py --output-dir runs/nid_table1_qat
 ```
 
 Run or parse Vivado reports for generated RTL directories:
 
 ```bash
 python scripts/run_vivado_reports.py runs/jsc_table1_qat/rtl/*
+python scripts/run_vivado_reports.py runs/mnist_table1_qat/rtl/*
+python scripts/run_vivado_reports.py runs/nid_table1_qat/rtl/*
 ```
 
 If Vivado has already been run and only report parsing is needed:
 
 ```bash
 python scripts/run_vivado_reports.py --parse-only runs/jsc_table1_qat/rtl/*
+python scripts/run_vivado_reports.py --parse-only runs/mnist_table1_qat/rtl/*
+python scripts/run_vivado_reports.py --parse-only runs/nid_table1_qat/rtl/*
 ```
 
-Run Verilator bit-exact RTL checks:
+Run Verilator bit-exact RTL checks with the matching dataset cache:
 
 ```bash
 python scripts/run_verilator_check.py runs/jsc_table1_qat/rtl/* --data-cache /tmp/jsc.npz
+python scripts/run_verilator_check.py runs/mnist_table1_qat/rtl/* --data-cache /tmp/mnist.npz
+python scripts/run_verilator_check.py runs/nid_table1_qat/rtl/* --data-cache /tmp/nid.npz
 ```
 
 `RTLModel.predict()` is the runtime simulation API, but only after
