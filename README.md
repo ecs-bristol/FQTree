@@ -132,37 +132,6 @@ library. The script handles that compile step before calling `predict()`.
 - `environment.yml`: conda environment for local development and RTL simulation.
 - `requirements.txt`: editable install helper for local notebook use.
 
-## Backend Boundary
-
-`FQTreeClassifier` owns the public API and delegates training, prediction, and
-integer-booster export to a backend object. The default backend is `QXGBBackend`,
-which translates `FQTreeConfig` into `qxgb.QXGBClassifier` parameters.
-
-This keeps the paper-facing API stable:
-
-```python
-from fqtree import FQTreeClassifier, FQTreeConfig
-
-config = FQTreeConfig(
-    scale=3,
-    bias=-2.5,
-    xgb_params={
-        "n_estimators": 24,
-        "max_depth": 4,
-        "num_class": 5,
-        "eta": 0.8,
-    },
-)
-
-model = FQTreeClassifier(config)
-```
-
-Direct keyword construction is also supported:
-
-```python
-model = FQTreeClassifier(scale=3, bias=-2.5, n_estimators=24, max_depth=4)
-```
-
 ## Compatibility
 
 `FQTreeClassifier` delegates to the default `qxgb` backend, so existing training
