@@ -1,4 +1,1 @@
-qxgb
-alkaid
-scikit-learn
-numpy
+-e .[notebooks]
