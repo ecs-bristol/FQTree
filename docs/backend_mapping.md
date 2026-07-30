@@ -45,8 +45,7 @@ training. In this repository, the paper algorithm maps to code as follows:
 
 ## Why Keep FQTree and qxgb Separate?
 
-The split is useful only if FQTree remains more than a rename of qxgb. The
-intended boundary is:
+The intended boundary is:
 
 - qxgb remains a reusable quantized-BDT engine.
 - FQTree remains the reproducible, paper-facing package with the algorithm name,
@@ -68,6 +67,6 @@ backend_model = model.to_qxgb()
 ## Current Limitations
 
 - The qxgb backend currently implements the QAT path used by the FQTree rows.
-  PTQ is not available through this backend yet.
+  PTQ is not available yet.
 - Vivado/Vitis remain external toolchain dependencies and are not installed by
   the conda environment.
