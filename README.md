@@ -70,11 +70,17 @@ comb = trace(inp, out)
 
 ## Reproducing Table I Benchmarks
 
-The QAT/FQTree rows from Table I are represented by dataset-specific scripts:
+The Table I rows are represented by dataset-specific scripts. QAT scripts cover
+JSC, MNIST, and NID:
 
 - `scripts/reproduce_jsc_table1.py`: JSC HLF, with `accuracy` and `low_cost` cases.
 - `scripts/reproduce_mnist_table1.py`: MNIST, with `accuracy`, `balanced`, and `low_cost` cases.
 - `scripts/reproduce_nid_table1.py`: NID, with `accuracy`, `balanced`, and `low_cost` cases.
+
+PTQ scripts currently cover the JSC and MNIST Table I rows:
+
+- `scripts/reproduce_jsc_ptq_table1.py`: JSC HLF PTQ, with `accuracy` and `low_cost` cases.
+- `scripts/reproduce_mnist_ptq_table1.py`: MNIST PTQ, with `accuracy` and `low_cost` cases.
 
 Inspect the selected configurations without running training:
 
@@ -82,14 +88,18 @@ Inspect the selected configurations without running training:
 python scripts/reproduce_jsc_table1.py --dry-run
 python scripts/reproduce_mnist_table1.py --dry-run
 python scripts/reproduce_nid_table1.py --dry-run
+python scripts/reproduce_jsc_ptq_table1.py --dry-run
+python scripts/reproduce_mnist_ptq_table1.py --dry-run
 ```
 
-Generate RTL for the Table I QAT configurations:
+Generate RTL for the Table I configurations:
 
 ```bash
 python scripts/reproduce_jsc_table1.py --output-dir runs/jsc_table1_qat
 python scripts/reproduce_mnist_table1.py --output-dir runs/mnist_table1_qat
 python scripts/reproduce_nid_table1.py --output-dir runs/nid_table1_qat
+python scripts/reproduce_jsc_ptq_table1.py --output-dir runs/jsc_table1_ptq
+python scripts/reproduce_mnist_ptq_table1.py --output-dir runs/mnist_table1_ptq
 ```
 
 Run or parse Vivado reports for generated RTL directories:
@@ -98,6 +108,8 @@ Run or parse Vivado reports for generated RTL directories:
 python scripts/run_vivado_reports.py runs/jsc_table1_qat/rtl/*
 python scripts/run_vivado_reports.py runs/mnist_table1_qat/rtl/*
 python scripts/run_vivado_reports.py runs/nid_table1_qat/rtl/*
+python scripts/run_vivado_reports.py runs/jsc_table1_ptq/rtl/*
+python scripts/run_vivado_reports.py runs/mnist_table1_ptq/rtl/*
 ```
 
 If Vivado has already been run and only report parsing is needed:
@@ -106,6 +118,8 @@ If Vivado has already been run and only report parsing is needed:
 python scripts/run_vivado_reports.py --parse-only runs/jsc_table1_qat/rtl/*
 python scripts/run_vivado_reports.py --parse-only runs/mnist_table1_qat/rtl/*
 python scripts/run_vivado_reports.py --parse-only runs/nid_table1_qat/rtl/*
+python scripts/run_vivado_reports.py --parse-only runs/jsc_table1_ptq/rtl/*
+python scripts/run_vivado_reports.py --parse-only runs/mnist_table1_ptq/rtl/*
 ```
 
 Run Verilator bit-exact RTL checks with the matching dataset cache:
@@ -114,6 +128,8 @@ Run Verilator bit-exact RTL checks with the matching dataset cache:
 python scripts/run_verilator_check.py runs/jsc_table1_qat/rtl/* --data-cache /tmp/jsc.npz
 python scripts/run_verilator_check.py runs/mnist_table1_qat/rtl/* --data-cache /tmp/mnist.npz
 python scripts/run_verilator_check.py runs/nid_table1_qat/rtl/* --data-cache /tmp/nid.npz
+python scripts/run_verilator_check.py runs/jsc_table1_ptq/rtl/* --data-cache /tmp/jsc.npz
+python scripts/run_verilator_check.py runs/mnist_table1_ptq/rtl/* --data-cache /tmp/mnist.npz
 ```
 
 `RTLModel.predict()` is the runtime simulation API, but only after
@@ -125,7 +141,8 @@ library. The script handles that compile step before calling `predict()`.
 - `src/fqtree/`: FQTree public Python package.
 - `src/fqtree/backends/`: backend adapters for QAT and PTQ flows.
 - `examples/`: JSC, MNIST, and NID notebooks, including JSC/MNIST PTQ examples.
-- `scripts/`: reproducibility scripts for Table I RTL generation, Vivado reports, and Verilator checks.
+- `scripts/`: reproducibility scripts for Table I RTL generation, Vivado reports,
+  and Verilator checks.
 - `docs/backend_mapping.md`: mapping between FQTree, qxgb, Alkaid, and hardware tools.
 - `environment.yml`: conda environment for local development and RTL simulation.
 - `requirements.txt`: editable install helper for local notebook use.
