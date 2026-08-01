@@ -7,7 +7,9 @@ intentionally split from the lower-level `qxgb` project:
   reproducibility workflow.
 - qxgb is the quantized XGBoost backend used for QAT training and integer
   booster export.
-- Alkaid lowers the integer booster into combinational logic and RTL projects.
+- XGBoost is used by the PTQ backend; Alkaid applies the leaf quantizer during
+  hardware tracing.
+- Alkaid lowers boosters into combinational logic and RTL projects.
 - Vivado/Vitis and Verilator are external hardware tools used to report FPGA
   resources and check RTL behavior.
 
@@ -17,9 +19,11 @@ intentionally split from the lower-level `qxgb` project:
 | --- | --- | --- |
 | Paper API | `fqtree.FQTreeClassifier` | Stable user-facing class named after the algorithm in the paper. |
 | Configuration | `fqtree.FQTreeConfig` | Stores FQTree-owned settings such as `scale`, `bias`, QAT/PTQ mode, and hardware trace mode. |
-| Backend adapter | `fqtree.backends.QXGBBackend` | Translates FQTree configuration into `qxgb.QXGBClassifier` arguments. |
+| QAT backend adapter | `fqtree.backends.QXGBBackend` | Translates FQTree configuration into `qxgb.QXGBClassifier` arguments. |
+| PTQ backend adapter | `fqtree.backends.XGBoostPTQBackend` | Trains a normal `xgboost.XGBClassifier` and carries the Alkaid leaf quantizer. |
 | QAT engine | `qxgb` | Performs quantization-aware XGBoost training and exports the integer booster via `ibooster()`. |
-| Hardware trace | `alkaid.converter.trace_model` and `alkaid.trace.trace` | Converts the qxgb integer booster into Alkaid combinational logic. |
+| PTQ engine | `xgboost` + Alkaid `leaf_quantizer` | Trains floating-point leaves first, then quantizes leaves during hardware tracing. |
+| Hardware trace | `alkaid.converter.trace_model` and `alkaid.trace.trace` | Converts the selected backend booster into Alkaid combinational logic. |
 | RTL generation | `alkaid.codegen.RTLModel` | Writes Verilog/VHDL RTL projects from Alkaid logic. |
 | FPGA implementation | Vivado/Vitis | Produces post-route timing, power, and resource reports. |
 | RTL simulation | Verilator | Compiles generated RTL into a shared library used by `RTLModel.predict()`. |
@@ -27,7 +31,7 @@ intentionally split from the lower-level `qxgb` project:
 ## Algorithm-to-Code Mapping
 
 The FQTree paper describes fine-grained quantization-aware boosted decision
-training. In this repository, the paper algorithm maps to code as follows:
+training. In this repository, the QAT path maps to code as follows:
 
 1. `FQTreeClassifier(...)` receives paper-level hyperparameters, such as
    `scale`, `bias`, `n_estimators`, `max_depth`, `num_class`, and `eta`.
@@ -42,6 +46,11 @@ training. In this repository, the paper algorithm maps to code as follows:
 7. `RTLModel.write(...)` writes the RTL project used for the hardware flow.
 8. `RTLModel._compile()` invokes Verilator; `RTLModel.predict()` then runs the
    compiled RTL model for bit-exact simulation.
+
+The PTQ path uses the same public class with `training_mode="ptq"`.
+`XGBoostPTQBackend` trains a normal `xgboost.XGBClassifier`, and
+`FQTreeClassifier.trace(...)` passes `leaf_quantizer` to Alkaid when lowering the
+trained booster.
 
 ## Why Keep FQTree and qxgb Separate?
 
@@ -66,7 +75,7 @@ backend_model = model.to_qxgb()
 
 ## Current Limitations
 
-- The qxgb backend currently implements the QAT path used by the FQTree rows.
-  PTQ is not available yet.
+- PTQ is currently exposed through the backend API and JSC/MNIST notebooks; the
+  scripted Table I reproduction flow is still focused on QAT rows.
 - Vivado/Vitis remain external toolchain dependencies and are not installed by
   the conda environment.

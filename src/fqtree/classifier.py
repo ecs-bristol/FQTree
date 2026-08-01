@@ -1,6 +1,6 @@
 from typing import Any, Optional, Union
 
-from .backends import QXGBBackend
+from .backends import QXGBBackend, XGBoostPTQBackend
 from .config import FQTreeConfig
 
 
@@ -12,7 +12,7 @@ class FQTreeClassifier:
     def __init__(
         self,
         config: Optional[FQTreeConfig] = None,
-        backend: Union[str, Any] = "qxgb",
+        backend: Union[str, Any] = "auto",
         **kwargs: Any,
     ):
         self.config = FQTreeConfig.from_kwargs(config, **kwargs)
@@ -44,14 +44,22 @@ class FQTreeClassifier:
     def trace(self, *, inputs: Any, mode: Optional[str] = None, **kwargs: Any) -> Any:
         from .hardware import trace_fqtree_model
 
+        if hasattr(self.backend, "trace_kwargs"):
+            trace_kwargs = self.backend.trace_kwargs()
+        else:
+            trace_kwargs = {}
+        trace_kwargs.update(kwargs)
         return trace_fqtree_model(
             self,
             inputs=inputs,
             mode=mode or self.config.hardware_mode,
-            **kwargs,
+            **trace_kwargs,
         )
 
     def to_qxgb(self) -> Any:
+        return self.backend_model_
+
+    def to_xgboost(self) -> Any:
         return self.backend_model_
 
     def get_params(self, deep: bool = True) -> dict[str, Any]:
@@ -63,7 +71,13 @@ class FQTreeClassifier:
         return params
 
     def set_params(self, **params: Any) -> "FQTreeClassifier":
-        backend = params.pop("backend", self.backend_name)
+        requested_mode = params.get("training_mode")
+        if params.get("mode") in ("qat", "ptq"):
+            requested_mode = params["mode"]
+        backend = params.pop(
+            "backend",
+            "auto" if requested_mode is not None else self.backend_name,
+        )
         self.config = FQTreeConfig.from_kwargs(self.config, **params)
         self.backend = self._make_backend(backend)
         return self
@@ -77,9 +91,15 @@ class FQTreeClassifier:
         raise AttributeError(f"{type(self).__name__!s} object has no attribute {name!r}")
 
     def _make_backend(self, backend: Union[str, Any]) -> Any:
+        if backend in (None, "auto"):
+            backend = "xgboost_ptq" if self.config.training_mode == "ptq" else "qxgb"
         if backend == "qxgb":
             self.backend_name = QXGBBackend.name
             return QXGBBackend(self.config)
+        if backend in ("xgboost_ptq", "ptq"):
+            self.config.training_mode = "ptq"
+            self.backend_name = XGBoostPTQBackend.name
+            return XGBoostPTQBackend(self.config)
         if isinstance(backend, type):
             created = backend(self.config)
             self.backend_name = getattr(created, "name", type(created).__name__)
@@ -87,7 +107,10 @@ class FQTreeClassifier:
         if hasattr(backend, "fit") and hasattr(backend, "integer_booster"):
             self.backend_name = getattr(backend, "name", type(backend).__name__)
             return backend
-        raise ValueError("backend must be 'qxgb', a backend class, or a backend instance.")
+        raise ValueError(
+            "backend must be 'auto', 'qxgb', 'xgboost_ptq', a backend class, "
+            "or a backend instance."
+        )
 
 
 # Compatibility alias for older examples and downstream code.

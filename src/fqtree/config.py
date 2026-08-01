@@ -51,6 +51,9 @@ class FQTreeConfig:
             params["quantizer"] = self.quantizer
         return params
 
+    def to_xgboost_params(self) -> Dict[str, Any]:
+        return dict(self.xgb_params)
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "scale": self.scale,
@@ -70,6 +73,8 @@ def _split_config_params(params: Mapping[str, Any]) -> Tuple[Dict[str, Any], Dic
         if key == "xgb_params":
             if value:
                 xgb_params.update(dict(value))
+        elif key == "leaf_quantizer":
+            known["quantizer"] = value
         elif key in _CONFIG_KEYS:
             known[key] = value
         elif key == "mode":

@@ -3,9 +3,9 @@
 FQTree is the paper-facing package for fine-grained quantization-aware boosted
 decision trees targeting FPGA deployment.
 
-The public API is named after the paper algorithm, while the current QAT engine
-is implemented through the pinned [`qxgb`](https://github.com/calad0i/qxgb)
-backend.
+The public API is named after the paper algorithm. QAT uses the pinned
+[`qxgb`](https://github.com/calad0i/qxgb) backend, while PTQ uses a separate
+XGBoost backend with Alkaid leaf quantization during hardware tracing.
 
 See [docs/backend_mapping.md](docs/backend_mapping.md) for the detailed mapping
 between FQTree, qxgb, Alkaid, Vivado, and Verilator.
@@ -123,8 +123,8 @@ library. The script handles that compile step before calling `predict()`.
 ## Repository Layout
 
 - `src/fqtree/`: FQTree public Python package.
-- `src/fqtree/backends/`: backend adapters, currently `QXGBBackend`.
-- `examples/`: JSC, MNIST, and NID notebooks matching paper experiments.
+- `src/fqtree/backends/`: backend adapters for QAT and PTQ flows.
+- `examples/`: JSC, MNIST, and NID notebooks, including JSC/MNIST PTQ examples.
 - `scripts/`: reproducibility scripts for Table I RTL generation, Vivado reports, and Verilator checks.
 - `docs/backend_mapping.md`: mapping between FQTree, qxgb, Alkaid, and hardware tools.
 - `environment.yml`: conda environment for local development and RTL simulation.
@@ -132,10 +132,11 @@ library. The script handles that compile step before calling `predict()`.
 
 ## Compatibility
 
-`FQTreeClassifier` delegates to the default `qxgb` backend, so existing training
-arguments such as `scale`, `bias`, `n_estimators`, and `max_depth` remain
-available. The hardware integer booster is exposed through both
-`to_integer_booster()` and the compatibility method `ibooster()`.
+`FQTreeClassifier` selects a backend from `training_mode`: QAT uses `qxgb`, and
+PTQ uses the XGBoost PTQ backend. Existing training arguments such as `scale`,
+`bias`, `n_estimators`, and `max_depth` remain available on the QAT path. The
+hardware booster is exposed through both `to_integer_booster()` and the
+compatibility method `ibooster()`.
 
 A compatibility alias is also provided:
 
